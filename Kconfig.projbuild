@@ -1,3 +1,7 @@
-menu "Component drv_stream_buffer Configuration"
+menu "Component drv_stream Configuration"
 
+    config DRV_STREAM_USE
+        bool "Use drv_stream component"
+        default y
+        
 endmenu

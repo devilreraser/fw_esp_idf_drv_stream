@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * File:   drv_stream_buffer.h
+ * File:   drv_stream.h
  * Author: XX
  *
  * Created on YYYY MM DD
@@ -48,12 +48,12 @@ extern "C"
 /* *****************************************************************************
  * Function Prototypes
  **************************************************************************** */
-void drv_stream_buffer_init(StreamBufferHandle_t* pStreamBuffer, size_t nStreamBufferSize, char* pName);
-void drv_stream_buffer_zero(StreamBufferHandle_t* pStreamBuffer);
-size_t drv_stream_buffer_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize);
-size_t drv_stream_buffer_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize);
-int drv_stream_buffer_get_size(StreamBufferHandle_t* pStreamBuffer);
-int drv_stream_buffer_get_free(StreamBufferHandle_t* pStreamBuffer);
+void drv_stream_init(StreamBufferHandle_t* pStreamBuffer, size_t nStreamBufferSize, char* pName);
+void drv_stream_zero(StreamBufferHandle_t* pStreamBuffer);
+size_t drv_stream_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize);
+size_t drv_stream_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize);
+int drv_stream_get_size(StreamBufferHandle_t* pStreamBuffer);
+int drv_stream_get_free(StreamBufferHandle_t* pStreamBuffer);
 
 #ifdef __cplusplus
 }

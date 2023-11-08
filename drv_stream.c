@@ -1,5 +1,5 @@
 /* *****************************************************************************
- * File:   drv_stream_buffer.c
+ * File:   drv_stream.c
  * Author: XX
  *
  * Created on YYYY MM DD
@@ -11,7 +11,7 @@
 /* *****************************************************************************
  * Header Includes
  **************************************************************************** */
-#include "drv_stream_buffer.h"
+#include "drv_stream.h"
 
 #include "esp_log.h"
 
@@ -23,21 +23,21 @@
 /* *****************************************************************************
  * Configuration Definitions
  **************************************************************************** */
-#define TAG "drv_stream_buffer"
+#define TAG "drv_stream"
 
 /* *****************************************************************************
  * Constants and Macros Definitions
  **************************************************************************** */
-#define DRV_STREAM_BUFFER_TRIGGER_LEVEL_BYTES   0   /* 0 is equal to 1 byte */
+#define DRV_STREAM_TRIGGER_LEVEL_BYTES   0   /* 0 is equal to 1 byte */
 
-//#define DRV_STREAM_BUFFER_TICKS_TO_WAIT         pdMS_TO_TICKS(0)  
-//#define DRV_STREAM_BUFFER_TICKS_TO_WAIT         pdMS_TO_TICKS(1)  
-#define DRV_STREAM_BUFFER_TICKS_TO_WAIT         portMAX_DELAY
+//#define DRV_STREAM_TICKS_TO_WAIT         pdMS_TO_TICKS(0)  
+//#define DRV_STREAM_TICKS_TO_WAIT         pdMS_TO_TICKS(1)  
+#define DRV_STREAM_TICKS_TO_WAIT         portMAX_DELAY
 
-#define DRV_STREAM_BUFFER_USE_SEMAPHORE         1
-#define DRV_STREAM_BUFFER_SEMAPHORE_TICKS       portMAX_DELAY
+#define DRV_STREAM_USE_SEMAPHORE         1
+#define DRV_STREAM_SEMAPHORE_TICKS       portMAX_DELAY
 
-#define DRV_STREAM_BUFFER_DEFAULT_LENGTH_MAX    2048
+#define DRV_STREAM_DEFAULT_LENGTH_MAX    2048
 
 /* *****************************************************************************
  * Enumeration Definitions
@@ -51,7 +51,7 @@ typedef struct
     StreamBufferHandle_t* pStreamBuffer;
     SemaphoreHandle_t xStreamBufferMutex;
     char* pName;
-} drv_stream_buffer_node_t;
+} drv_stream_node_t;
 
 /* *****************************************************************************
  * Function-Like Macros
@@ -60,8 +60,8 @@ typedef struct
 /* *****************************************************************************
  * Variables Definitions
  **************************************************************************** */
-drv_stream_buffer_node_t drv_stream_buffer_node_list[20] = {0};
-int drv_stream_buffer_node_count = 0;
+drv_stream_node_t drv_stream_node_list[20] = {0};
+int drv_stream_node_count = 0;
 
 bool overwrite_old_data = false;        /* overwrite old data if no enough available space to write in buffer */
 bool use_last_data_if_no_space = true;  /* true     - use last data when no overwrite_old_data and no enough space in buffer */
@@ -74,12 +74,12 @@ bool use_last_data_if_no_space = true;  /* true     - use last data when no over
 /* *****************************************************************************
  * Functions
  **************************************************************************** */
-int drv_stream_buffer_node_find(StreamBufferHandle_t* pStreamBuffer)
+int drv_stream_node_find(StreamBufferHandle_t* pStreamBuffer)
 {
     int index;
-    for (index = 0; index < drv_stream_buffer_node_count; index++)
+    for (index = 0; index < drv_stream_node_count; index++)
     {
-        if (pStreamBuffer == drv_stream_buffer_node_list[index].pStreamBuffer)
+        if (pStreamBuffer == drv_stream_node_list[index].pStreamBuffer)
         {
             break;
         }
@@ -87,41 +87,41 @@ int drv_stream_buffer_node_find(StreamBufferHandle_t* pStreamBuffer)
     return index;
 }
 
-void drv_stream_buffer_node_add(StreamBufferHandle_t* pStreamBuffer, char* pName)
+void drv_stream_node_add(StreamBufferHandle_t* pStreamBuffer, char* pName)
 {
-    int index = drv_stream_buffer_node_find(pStreamBuffer);
+    int index = drv_stream_node_find(pStreamBuffer);
 
-    if (index >= drv_stream_buffer_node_count)
+    if (index >= drv_stream_node_count)
     {
-        if (drv_stream_buffer_node_count < sizeof(drv_stream_buffer_node_list)/sizeof(drv_stream_buffer_node_list[0]))
+        if (drv_stream_node_count < sizeof(drv_stream_node_list)/sizeof(drv_stream_node_list[0]))
         {
-            index = drv_stream_buffer_node_count;
-            drv_stream_buffer_node_count++;
+            index = drv_stream_node_count;
+            drv_stream_node_count++;
         }
     }
 
-    if (index < drv_stream_buffer_node_count)
+    if (index < drv_stream_node_count)
     {
-        drv_stream_buffer_node_list[index].pStreamBuffer = pStreamBuffer;
-        #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-        drv_stream_buffer_node_list[index].xStreamBufferMutex = xSemaphoreCreateMutex();
+        drv_stream_node_list[index].pStreamBuffer = pStreamBuffer;
+        #if DRV_STREAM_USE_SEMAPHORE
+        drv_stream_node_list[index].xStreamBufferMutex = xSemaphoreCreateMutex();
         #endif
-        drv_stream_buffer_node_list[index].pName = pName;
+        drv_stream_node_list[index].pName = pName;
     }
 }
 
-void drv_stream_buffer_init(StreamBufferHandle_t* pStreamBuffer, size_t nStreamBufferSize, char* pName)
+void drv_stream_init(StreamBufferHandle_t* pStreamBuffer, size_t nStreamBufferSize, char* pName)
 {
     if (nStreamBufferSize == 0)
     {
-        nStreamBufferSize = DRV_STREAM_BUFFER_DEFAULT_LENGTH_MAX;
+        nStreamBufferSize = DRV_STREAM_DEFAULT_LENGTH_MAX;
     }
-    *pStreamBuffer = xStreamBufferCreate(nStreamBufferSize, DRV_STREAM_BUFFER_TRIGGER_LEVEL_BYTES);
+    *pStreamBuffer = xStreamBufferCreate(nStreamBufferSize, DRV_STREAM_TRIGGER_LEVEL_BYTES);
 
-    drv_stream_buffer_node_add(pStreamBuffer, pName);
+    drv_stream_node_add(pStreamBuffer, pName);
 }
 
-void drv_stream_buffer_zero(StreamBufferHandle_t* pStreamBuffer)
+void drv_stream_zero(StreamBufferHandle_t* pStreamBuffer)
 {
 
     if (pStreamBuffer != NULL)
@@ -130,11 +130,11 @@ void drv_stream_buffer_zero(StreamBufferHandle_t* pStreamBuffer)
         //ESP_LOGE(TAG, "%s : pStreamBuffer @ %08X *pStreamBuffer @ %08X", __func__, (int)pStreamBuffer, (int)*pStreamBuffer);
         if (*pStreamBuffer != NULL)
         {
-            int index = drv_stream_buffer_node_find(pStreamBuffer);
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            int index = drv_stream_node_find(pStreamBuffer);
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreTake(drv_stream_buffer_node_list[index].xStreamBufferMutex, DRV_STREAM_BUFFER_SEMAPHORE_TICKS);
+                xSemaphoreTake(drv_stream_node_list[index].xStreamBufferMutex, DRV_STREAM_SEMAPHORE_TICKS);
             }
             #endif
 
@@ -144,24 +144,24 @@ void drv_stream_buffer_zero(StreamBufferHandle_t* pStreamBuffer)
                 uint8_t* pData = malloc(bytes_to_remove);
                 if (pData)
                 {
-                    xStreamBufferReceive(*pStreamBuffer, pData, bytes_to_remove, DRV_STREAM_BUFFER_TICKS_TO_WAIT);
+                    xStreamBufferReceive(*pStreamBuffer, pData, bytes_to_remove, DRV_STREAM_TICKS_TO_WAIT);
                     free(pData);
                 }
                 else
                 {
-                    ESP_LOGE(TAG, "Cannot Allocate Memory to free %d bytes in %s StreamBuffer", bytes_to_remove, drv_stream_buffer_node_list[index].pName);
+                    ESP_LOGE(TAG, "Cannot Allocate Memory to free %d bytes in %s StreamBuffer", bytes_to_remove, drv_stream_node_list[index].pName);
                 }
 
             }
             //xStreamBufferReset(*pStreamBuffer);
             //int size = xStreamBufferBytesAvailable(*pStreamBuffer) + xStreamBufferSpacesAvailable(*pStreamBuffer);
             //vStreamBufferDelete(*pStreamBuffer);
-            //*pStreamBuffer = xStreamBufferCreate(size, DRV_STREAM_BUFFER_TRIGGER_LEVEL_BYTES);
+            //*pStreamBuffer = xStreamBufferCreate(size, DRV_STREAM_TRIGGER_LEVEL_BYTES);
 
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreGive(drv_stream_buffer_node_list[index].xStreamBufferMutex);
+                xSemaphoreGive(drv_stream_node_list[index].xStreamBufferMutex);
             }
             #endif
         }
@@ -176,7 +176,7 @@ void drv_stream_buffer_zero(StreamBufferHandle_t* pStreamBuffer)
 
 
 //to do use smaller malloc and option to overwrite oldest data or not
-size_t drv_stream_buffer_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize)
+size_t drv_stream_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize)
 {
     if (pStreamBuffer != NULL)
     {
@@ -184,11 +184,11 @@ size_t drv_stream_buffer_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
         //ESP_LOGE(TAG, "%s : pStreamBuffer @ %08X *pStreamBuffer @ %08X", __func__, (int)pStreamBuffer, (int)*pStreamBuffer);
         if (*pStreamBuffer != NULL)
         {
-            int index = drv_stream_buffer_node_find(pStreamBuffer);
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            int index = drv_stream_node_find(pStreamBuffer);
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreTake(drv_stream_buffer_node_list[index].xStreamBufferMutex, DRV_STREAM_BUFFER_SEMAPHORE_TICKS);
+                xSemaphoreTake(drv_stream_node_list[index].xStreamBufferMutex, DRV_STREAM_SEMAPHORE_TICKS);
             }
             #endif
 
@@ -212,12 +212,12 @@ size_t drv_stream_buffer_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
                         uint8_t* pDataRemove = malloc(bytes_to_remove);
                         if (pDataRemove)
                         {
-                            bytes_removed = xStreamBufferReceive(*pStreamBuffer, pDataRemove, bytes_to_remove, DRV_STREAM_BUFFER_TICKS_TO_WAIT);
+                            bytes_removed = xStreamBufferReceive(*pStreamBuffer, pDataRemove, bytes_to_remove, DRV_STREAM_TICKS_TO_WAIT);
                             free(pDataRemove);
                         }
                         else
                         {
-                            ESP_LOGE(TAG, "Cannot Allocate Memory to free %d bytes in %s StreamBuffer", bytes_to_remove, drv_stream_buffer_node_list[index].pName);
+                            ESP_LOGE(TAG, "Cannot Allocate Memory to free %d bytes in %s StreamBuffer", bytes_to_remove, drv_stream_node_list[index].pName);
                         }
                     }
                     
@@ -244,7 +244,7 @@ size_t drv_stream_buffer_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
 
                     }
 
-                    int bytes_sent = xStreamBufferSend(*pStreamBuffer, pData, bytes_to_send, DRV_STREAM_BUFFER_TICKS_TO_WAIT);
+                    int bytes_sent = xStreamBufferSend(*pStreamBuffer, pData, bytes_to_send, DRV_STREAM_TICKS_TO_WAIT);
 
                     pData += bytes_sent;
 
@@ -261,10 +261,10 @@ size_t drv_stream_buffer_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
             
             nSizeSentTotal = nSizeSendRequest - bytes_removed_total;
 
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreGive(drv_stream_buffer_node_list[index].xStreamBufferMutex);
+                xSemaphoreGive(drv_stream_node_list[index].xStreamBufferMutex);
             }
             #endif
 
@@ -285,7 +285,7 @@ size_t drv_stream_buffer_push(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
     }
 }
 
-size_t drv_stream_buffer_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize)
+size_t drv_stream_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pData, size_t nSize)
 {
     if (pStreamBuffer != NULL)
     {
@@ -293,11 +293,11 @@ size_t drv_stream_buffer_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
         //ESP_LOGE(TAG, "%s : pStreamBuffer @ %08X *pStreamBuffer @ %08X", __func__, (int)pStreamBuffer, (int)*pStreamBuffer);
         if (*pStreamBuffer != NULL)
         {
-            int index = drv_stream_buffer_node_find(pStreamBuffer);
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            int index = drv_stream_node_find(pStreamBuffer);
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreTake(drv_stream_buffer_node_list[index].xStreamBufferMutex, DRV_STREAM_BUFFER_SEMAPHORE_TICKS);
+                xSemaphoreTake(drv_stream_node_list[index].xStreamBufferMutex, DRV_STREAM_SEMAPHORE_TICKS);
             }
             #endif
             
@@ -310,7 +310,7 @@ size_t drv_stream_buffer_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
             }
             if (nSizeAvailable)
             {
-                nSize = xStreamBufferReceive(*pStreamBuffer, pData, nSizeAvailable, DRV_STREAM_BUFFER_TICKS_TO_WAIT);
+                nSize = xStreamBufferReceive(*pStreamBuffer, pData, nSizeAvailable, DRV_STREAM_TICKS_TO_WAIT);
             }
             else
             {
@@ -318,10 +318,10 @@ size_t drv_stream_buffer_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
             }
             
 
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreGive(drv_stream_buffer_node_list[index].xStreamBufferMutex);
+                xSemaphoreGive(drv_stream_node_list[index].xStreamBufferMutex);
             }
             #endif
             return nSize;
@@ -340,7 +340,7 @@ size_t drv_stream_buffer_pull(StreamBufferHandle_t* pStreamBuffer, uint8_t* pDat
     }
 }
 
-int drv_stream_buffer_get_size(StreamBufferHandle_t* pStreamBuffer)
+int drv_stream_get_size(StreamBufferHandle_t* pStreamBuffer)
 {
     if (pStreamBuffer != NULL)
     {
@@ -348,20 +348,20 @@ int drv_stream_buffer_get_size(StreamBufferHandle_t* pStreamBuffer)
         //ESP_LOGE(TAG, "%s : pStreamBuffer @ %08X *pStreamBuffer @ %08X", __func__, (int)pStreamBuffer, (int)*pStreamBuffer);
         if (*pStreamBuffer != NULL)
         {
-            int index = drv_stream_buffer_node_find(pStreamBuffer);
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            int index = drv_stream_node_find(pStreamBuffer);
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreTake(drv_stream_buffer_node_list[index].xStreamBufferMutex, DRV_STREAM_BUFFER_SEMAPHORE_TICKS);
+                xSemaphoreTake(drv_stream_node_list[index].xStreamBufferMutex, DRV_STREAM_SEMAPHORE_TICKS);
             }
             #endif
 
             int nSize = xStreamBufferBytesAvailable(*pStreamBuffer);
 
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreGive(drv_stream_buffer_node_list[index].xStreamBufferMutex);
+                xSemaphoreGive(drv_stream_node_list[index].xStreamBufferMutex);
             }
             #endif
             return nSize;
@@ -380,7 +380,7 @@ int drv_stream_buffer_get_size(StreamBufferHandle_t* pStreamBuffer)
     }
 }
 
-int drv_stream_buffer_get_free(StreamBufferHandle_t* pStreamBuffer)
+int drv_stream_get_free(StreamBufferHandle_t* pStreamBuffer)
 {
     if (pStreamBuffer != NULL)
     {
@@ -388,20 +388,20 @@ int drv_stream_buffer_get_free(StreamBufferHandle_t* pStreamBuffer)
         //ESP_LOGE(TAG, "%s : pStreamBuffer @ %08X *pStreamBuffer @ %08X", __func__, (int)pStreamBuffer, (int)*pStreamBuffer);
         if (*pStreamBuffer != NULL)
         {
-            int index = drv_stream_buffer_node_find(pStreamBuffer);
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            int index = drv_stream_node_find(pStreamBuffer);
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreTake(drv_stream_buffer_node_list[index].xStreamBufferMutex, DRV_STREAM_BUFFER_SEMAPHORE_TICKS);
+                xSemaphoreTake(drv_stream_node_list[index].xStreamBufferMutex, DRV_STREAM_SEMAPHORE_TICKS);
             }
             #endif
 
             int nSize = xStreamBufferSpacesAvailable(*pStreamBuffer);
             
-            #if DRV_STREAM_BUFFER_USE_SEMAPHORE
-            if (drv_stream_buffer_node_list[index].xStreamBufferMutex)
+            #if DRV_STREAM_USE_SEMAPHORE
+            if (drv_stream_node_list[index].xStreamBufferMutex)
             {
-                xSemaphoreGive(drv_stream_buffer_node_list[index].xStreamBufferMutex);
+                xSemaphoreGive(drv_stream_node_list[index].xStreamBufferMutex);
             }
             #endif
             return nSize;
